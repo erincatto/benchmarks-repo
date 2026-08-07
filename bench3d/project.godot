@@ -1,0 +1,38 @@
+; Benchmark project — 3D track (Rapier vs Jolt vs Godot Physics 3D).
+;
+; The physics engine is NOT set here. run_bench.sh writes an override.cfg naming the engine
+; for each run, because Godot only reads `physics/3d/physics_engine` at startup and there is
+; no CLI flag for it.
+
+config_version=5
+
+[application]
+
+config/name="Rapier Bench 3D"
+run/main_scene="res://main.tscn"
+config/features=PackedStringArray("4.7")
+; Read by launcher.gd and viewer.gd so the shared framework knows which track it is in.
+config/bench_dim="3d"
+
+[debug]
+
+settings/stdout/verbose_stdout=false
+
+[display]
+
+; Without this a `--resolution 1920x1080` window is 1920x1080 *physical* pixels, which is
+; only 960x540 points on a retina screen — small and awkward to frame when screen recording.
+window/dpi/allow_hidpi=true
+
+[physics]
+
+jolt_physics_3d/limits/max_body_pairs=262144
+jolt_physics_3d/limits/max_contact_constraints=131072
+
+common/physics_ticks_per_second=60
+common/max_physics_steps_per_frame=1
+3d/run_on_separate_thread=false
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
