@@ -28,7 +28,7 @@ var shot_exact := false
 ## Ticks to simulate before stopping, so a case does not run until you close the window.
 ## Physics stops but the scene stays on screen, with the final metrics still on the HUD.
 ## 0 runs indefinitely.
-var max_ticks := 1800
+var max_ticks := 300
 
 ## Wall-clock cut for recording. Ticks are useless there: a slow engine takes far longer to
 ## reach the same tick, so clips would differ in length. 0 disables.

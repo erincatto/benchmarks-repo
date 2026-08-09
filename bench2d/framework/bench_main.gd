@@ -13,8 +13,8 @@ extends Node
 
 const Stats := preload("res://framework/stats.gd")
 
-const DEFAULT_STEPS := 900
-const DEFAULT_WARMUP := 120
+const DEFAULT_STEPS := 300
+const DEFAULT_WARMUP := 60
 
 var _case: RefCounted
 var _case_name := ""

@@ -6,69 +6,98 @@ same way.
 | track | engines |
 |---|---|
 | **2D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · [Box2D v3](https://github.com/Pizzaandy/godot-box2d-v3) |
-| **3D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · Jolt Physics (built into Godot 4.4+) |
-
-Jolt is 3D-only and Box2D is 2D-only, so there is no single three-way comparison.
+| **3D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · Jolt (in Godot 4.4+) · [Box3D](https://github.com/bearlikelion/godot-box3d) |
 
 **[→ Results](docs/REPORT.md)** · **[→ Method and caveats](SPEC.md)**
 
 ## Run it
 
-Addons are committed, so a clone is all you need.
+Addons are committed, so a clone is all you need. Every case measures 5 seconds.
 
 ```bash
-./run_bench.sh                      # both tracks, writes docs/REPORT.md
+./run_bench.sh                              # both tracks, writes docs/REPORT.md
 ./run_bench.sh --dim 2d --cases pyramid
-./capture_shots.sh                  # per-engine screenshots at an identical tick
-python3 make_pdf.py                 # shareable PDF + self-contained HTML
+./run_bench.sh --dim 3d --repeats 3         # average out noise
+./capture_shots.sh                          # screenshots at an identical tick
+python3 make_pdf.py                         # PDF + self-contained HTML
 ```
 
-`--with-godot` adds Godot's built-in server as a reference column. It is an order of
-magnitude slower at these body counts, which is why it is not in the default path.
+`--with-godot` adds Godot's built-in server as a reference column.
+
+Each run writes JSON to `results/`: `step_ms` (min/mean/p50/p95/p99/max), `cpu`
+(`cores_used`, `peak_rss_mb`), `body_count`, and a determinism `fingerprint`.
 
 ## Watch a case
 
-Open `bench2d/` or `bench3d/` in Godot and press play. Pick engine and case from the menu;
-switching engine restarts, because Godot reads `physics/{2d,3d}/physics_engine` once at
-startup. In the viewer: `esc` menu, `space` pause, `r` restart, `d` toggle shape drawing.
+```bash
+./record_helper.sh 2d Rapier2D pyramid      # one case, windowed at 1920x1080
+./record_helper.sh 2d Rapier2D all          # every case back to back, 5s each
+RES=3840x2160 SECS=8 ./record_helper.sh 3d "Jolt Physics" all
+```
+
+Engine names must match what the extension registers, and they differ between addons:
+
+| track | names |
+|---|---|
+| 2D | `Rapier2D`, `Box2D`, `GodotPhysics2D` |
+| 3D | `Rapier3D`, `Jolt Physics`, `Box3D Physics`, `GodotPhysics3D` |
+
+Note the trailing ` Physics` in 3D. A wrong name makes Godot fall back to its own server
+silently, so `record_helper.sh` validates it and refuses to launch.
+
+Or open `bench2d/` / `bench3d/` in Godot and press play. In the viewer: `esc` menu,
+`space` pause, `r` restart, `d` toggle shape drawing.
+
+## Building Rapier from source
+
+The plugin repo is expected alongside this one at `~/Documents/godot-rapier-2d`.
+
+```bash
+cd ~/Documents/godot-rapier-2d
+./scripts/build-rel-2d.sh                   # or build-rel-3d.sh
+```
+
+That writes into the plugin repo's own `bin2d/`, so copy it here before measuring — otherwise
+you benchmark the committed build:
+
+```bash
+rsync -a ~/Documents/godot-rapier-2d/bin2d/addons/godot-rapier2d/ bench2d/addons/godot-rapier2d/
+```
+
+Use a release build for any number you quote; debug builds are several times slower.
+
+## Prebuilt addons
+
+| addon | where |
+|---|---|
+| Rapier | [releases](https://github.com/appsinacup/godot-rapier-physics/releases) |
+| Box2D v3 | [releases](https://github.com/Pizzaandy/godot-box2d-v3/releases) |
+| Box3D | [releases](https://github.com/bearlikelion/godot-box3d/releases) |
+| Jolt | ships with Godot 4.4+ |
+
+Only macOS arm64 is committed. For other platforms drop the libraries into
+`bench{2,3}d/addons/*/bin/` and extend the `.gdextension` files.
 
 ## Cases
 
-| case | 2D bodies | measures |
+| case | bodies | measures |
 |---|---:|---|
-| `pyramid` | 10,000 | solver throughput, box-box |
-| `mixed_pile` | 5,000 | narrow phase: circle, capsule, convex polygon |
+| `pyramid` | 10,000 / 3,795 | solver throughput, box-box |
+| `mixed_pile` | 5,000 | narrow phase: circle, capsule, convex |
 | `joint_grid` | 5,000 / ~9,950 joints | constraints |
-| `smash` | 5,000 | high-energy impact |
-| `query_storm` | 10,000 + 900 queries/tick | acceleration structure |
+| `smash` | 5,001 | high-energy impact |
+| `query_storm` | 2,000 + ~900 queries/tick | acceleration structure |
+| `drop` | 8,000 | falling, colliding, settling pile |
 
-## Two things to know before quoting a number
-
-**Godot falls back to its default physics server silently** when the configured engine is
-missing — no error, no warning, and the resulting table looks perfectly normal. Two guards
-run every sweep: a pre-flight check that the requested engines actually registered, and a
-per-run fingerprint of the final body poses that must differ between engines. A collision
-means one of them was the fallback.
-
-**Timing is CPU time.** A busy machine inflates every figure. `run_bench.sh` records the load
-average into `results/environment.json`; if it is a significant fraction of your core count,
-the ratios still hold but the milliseconds are not comparable to a run on an idle machine.
-
-## Adding platforms
-
-Only macOS arm64 binaries are committed. For other platforms, drop the matching libraries
-into `bench2d/addons/*/bin/` and `bench3d/addons/*/bin/` and extend the `.gdextension` files.
-Rapier releases cover every platform; Box2D v3 builds from source with SCons.
+`BENCH_DROP_COUNT` and `BENCH_DROP_COLS` override the drop scene.
 
 ## Layout
 
 ```
 bench2d/  bench3d/    Godot projects: cases/, framework/, addons/
 run_bench.sh          sweep driver
-capture_shots.sh      per-engine screenshots at a fixed tick
+record_helper.sh      windowed playback for screen recording
+capture_shots.sh      screenshots at a fixed tick
 make_report.py        results/ -> docs/REPORT.md + charts
-make_pdf.py           REPORT.md -> PDF + self-contained HTML
+make_pdf.py           REPORT.md -> PDF + HTML
 ```
-
-Framework scripts are duplicated in `bench2d/framework/` and `bench3d/framework/` rather than
-symlinked, because a git symlink checks out as a text file on Windows. Keep them in sync.

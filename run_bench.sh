@@ -23,8 +23,8 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 GODOT="${GODOT:-/Applications/Godot.app/Contents/MacOS/Godot}"
 DIM="both"
 REPEATS=1
-STEPS=900
-WARMUP=120
+STEPS=300
+WARMUP=60
 CASES="pyramid mixed_pile joint_grid smash query_storm drop"
 OUT="$HERE/results"
 # Per-run wall-clock ceiling. An engine can be pathologically slow on a case rather than

@@ -1,6 +1,6 @@
 # Godot physics engine benchmark
 
-Godot 4.7-stable (official) · 240 timed steps · 60 Hz · single run · lower is better.
+Godot 4.7-stable (official) · 300 timed steps · 60 Hz · single run · lower is better.
 
 ## 2D (lower is better)
 
@@ -8,9 +8,13 @@ Godot 4.7-stable (official) · 240 timed steps · 60 Hz · single run · lower i
 
 ![2d relative](chart_2d_rel.png)
 
-### `drop` (2d)
+### `pyramid` (2d)
+
+| Rapier2D | Box2D |
+|---|---|
+| ![Rapier2D](shots/2d_pyramid_Rapier2D.png) | ![Box2D](shots/2d_pyramid_Box2D.png) |
 
 | engine | step p50 | step p99 | vs Rapier2D |
 |---|---:|---:|---:|
-| **Rapier2D** | **20.85 ms** | 33.23 ms | — |
-| Box2D | 25.61 ms | 48.95 ms | 1.23x |
+| **Rapier2D** | **19.00 ms** | 25.80 ms | — |
+| Box2D | 20.08 ms | 39.74 ms | 1.06x |
