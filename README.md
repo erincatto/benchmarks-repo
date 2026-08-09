@@ -8,8 +8,7 @@ same way.
 | **2D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · [Box2D v3](https://github.com/Pizzaandy/godot-box2d-v3) |
 | **3D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · Jolt (in Godot 4.4+) · [Box3D](https://github.com/bearlikelion/godot-box3d) |
 
-**Results: [2D](docs/REPORT-2D.md) · [3D](docs/REPORT-3D.md) · [both](docs/REPORT.md)** ·
-**[Method and caveats](SPEC.md)**
+**Results: [2D](docs/REPORT-2D.md) · [3D](docs/REPORT-3D.md) · [both](docs/REPORT.md)**
 
 ## Run it
 
