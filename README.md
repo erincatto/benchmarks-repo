@@ -8,7 +8,8 @@ same way.
 | **2D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · [Box2D v3](https://github.com/Pizzaandy/godot-box2d-v3) |
 | **3D** | [Rapier](https://github.com/appsinacup/godot-rapier-physics) · Jolt (in Godot 4.4+) · [Box3D](https://github.com/bearlikelion/godot-box3d) |
 
-**[→ Results](docs/REPORT.md)** · **[→ Method and caveats](SPEC.md)**
+**Results: [2D](docs/REPORT-2D.md) · [3D](docs/REPORT-3D.md) · [both](docs/REPORT.md)** ·
+**[Method and caveats](SPEC.md)**
 
 ## Run it
 
@@ -23,6 +24,17 @@ python3 make_pdf.py                         # PDF + self-contained HTML
 ```
 
 `--with-godot` adds Godot's built-in server as a reference column.
+
+Results accumulate in `results/` and are never cleared, so a crashed or skipped combination
+can be filled in afterwards and the report picks it up:
+
+```bash
+./run_bench.sh                              # whatever survives
+./run_bench.sh --dim 3d --cases joint_grid  # re-run just the one that died
+python3 make_report.py                      # merges everything present
+```
+
+Delete `results/` by hand when a case changes, or the old numbers linger.
 
 Each run writes JSON to `results/`: `step_ms` (min/mean/p50/p95/p99/max), `cpu`
 (`cores_used`, `peak_rss_mb`), `body_count`, and a determinism `fingerprint`.

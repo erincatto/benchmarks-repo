@@ -197,7 +197,9 @@ def main():
         "",
     ]
 
+    per_dim = {}
     for dim in sorted(tree):
+        section_start = len(out)
         cases_present = tree[dim]
         ordered = [c for c in CASE_ORDER if c in cases_present] + [
             c for c in sorted(cases_present) if c not in CASE_ORDER
@@ -289,12 +291,19 @@ def main():
                         f"least one fell back to the default server; those columns are invalid."
                     )
 
+        per_dim[dim] = out[section_start:]
+
     if warnings:
         out = out[:2] + ["## ⚠ Validity warnings", ""] + [f"- {w}" for w in warnings] + [""] + out[2:]
 
-
+    header = out[:4]
     (docs / "REPORT.md").write_text("\n".join(out))
     print(f"wrote {docs / 'REPORT.md'}")
+    # One file per dimension too: the tracks share no engine, so a reader only ever wants one.
+    for dim, body in per_dim.items():
+        path = docs / f"REPORT-{dim.upper()}.md"
+        path.write_text("\n".join(header + body))
+        print(f"wrote {path}")
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
     return 0
