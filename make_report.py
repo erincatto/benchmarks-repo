@@ -94,6 +94,7 @@ def summarize(runs):
             extra.setdefault(key, []).append(value)
     return {
         "diverged": diverged,
+        "diverged_reason": "reported a non-finite metric, so the simulation blew up" if diverged else None,
         "repeats": len(runs),
         "p50": min(p50s),
         "median": statistics.median(p50s),
@@ -182,6 +183,34 @@ def chart_relative(dim, cases, data, engines, out):
     return True
 
 
+# Extra metrics that measure how far bodies travelled. A world can explode without ever going
+# non-finite: bodies fly apart, stop touching, and the step gets cheap — a fast time for a
+# simulation that failed. So a value far beyond every other engine's on the same case marks the
+# run diverged. Relative, because what counts as "far" differs by case; compared against the
+# largest other value, so an engine that merely settles looser is not caught.
+EXPLOSION_METRICS = ("displacement_max", "spread")
+EXPLOSION_RATIO = 10.0
+
+
+def mark_exploded(case_data):
+    for key in EXPLOSION_METRICS:
+        values = {
+            e: v["extra"][key]
+            for e, v in case_data.items()
+            if key in v["extra"] and math.isfinite(v["extra"][key])
+        }
+        for engine, value in values.items():
+            others = [x for e, x in values.items() if e != engine]
+            if not others or max(others) <= 0:
+                continue
+            ratio = value / max(others)
+            if ratio > EXPLOSION_RATIO and not case_data[engine]["diverged"]:
+                case_data[engine]["diverged"] = True
+                case_data[engine]["diverged_reason"] = (
+                    f"has `{key}` at {ratio:,.0f}x any other engine's, so the simulation exploded"
+                )
+
+
 def carried_section(docs, dim):
     """A track's section from its existing REPORT-<DIM>.md, for a run that did not include it.
 
@@ -241,6 +270,8 @@ def main():
             c for c in sorted(cases_present) if c not in CASE_ORDER
         ]
         data = {c: {e: summarize(r) for e, r in cases_present[c].items()} for c in ordered}
+        for c in ordered:
+            mark_exploded(data[c])
         engines = sorted(
             {e for c in ordered for e in data[c]}, key=lambda e: (e != BASELINE.get(dim), e)
         )
@@ -318,8 +349,8 @@ def main():
             for engine, v in s.items():
                 if v["diverged"]:
                     warnings.append(
-                        f"{dim}/{case}: {engine} reported a non-finite metric — the simulation "
-                        f"blew up, so its step time is not ranked."
+                        f"{dim}/{case}: {engine} {v['diverged_reason']} — its step time is "
+                        f"not ranked."
                     )
                 if len(v["fps"]) > 1:
                     warnings.append(

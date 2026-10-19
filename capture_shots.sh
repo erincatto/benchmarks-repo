@@ -44,6 +44,7 @@ mkdir -p docs/shots
 echo "=== 2D ==="
 shoot_engine bench2d 2d "Box2D"
 shoot_engine bench2d 2d "Rapier2D"
+shoot_engine bench2d 2d "GodotPhysics2D"
 echo "=== 3D ==="
 shoot_engine bench3d 3d "Jolt Physics"
 shoot_engine bench3d 3d "Rapier3D"
