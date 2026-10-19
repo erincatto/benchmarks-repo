@@ -182,6 +182,27 @@ def chart_relative(dim, cases, data, engines, out):
     return True
 
 
+def carried_section(docs, dim):
+    """A track's section from its existing REPORT-<DIM>.md, for a run that did not include it.
+
+    Running one track would otherwise drop the other from the combined report. The section is
+    marked as carried over, with the run line it was measured under, so it is not mistaken for
+    numbers from this run.
+    """
+    path = docs / f"REPORT-{dim.upper()}.md"
+    if not path.exists():
+        return None
+    lines = path.read_text(encoding="utf-8").split("\n")
+    start = next((i for i, l in enumerate(lines) if l.startswith(f"## {dim.upper()} ")), None)
+    if start is None:
+        return None
+    meta = next((l for l in lines[:start] if l.startswith("Godot ")), None)
+    note = f"_Not re-run: carried over from `{path.name}`" + (
+        f" ({meta.rstrip('.')})._" if meta else "._"
+    )
+    return [lines[start], "", note] + lines[start + 1 :]
+
+
 def main():
     results_dir = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "results"
     docs = ROOT / "docs"
@@ -205,8 +226,15 @@ def main():
         "",
     ]
 
+    carried = {
+        d: s for d in BASELINE if d not in tree and (s := carried_section(docs, d)) is not None
+    }
+
     per_dim = {}
-    for dim in sorted(tree):
+    for dim in sorted(set(tree) | set(carried)):
+        if dim not in tree:
+            out += carried[dim]
+            continue
         section_start = len(out)
         cases_present = tree[dim]
         ordered = [c for c in CASE_ORDER if c in cases_present] + [
@@ -309,16 +337,24 @@ def main():
 
         per_dim[dim] = out[section_start:]
 
-    if warnings:
-        out = out[:2] + ["## ⚠ Validity warnings", ""] + [f"- {w}" for w in warnings] + [""] + out[2:]
-
+    # Taken before the warnings go in: they are inserted after the title, and slicing afterwards
+    # gives the per-dimension files a warnings heading in place of the run line.
     header = out[:4]
-    (docs / "REPORT.md").write_text("\n".join(out), encoding="utf-8")
+
+    def with_warnings(lines, ws):
+        if not ws:
+            return lines
+        return lines[:2] + ["## ⚠ Validity warnings", ""] + [f"- {w}" for w in ws] + [""] + lines[2:]
+
+    (docs / "REPORT.md").write_text("\n".join(with_warnings(out, warnings)), encoding="utf-8")
     print(f"wrote {docs / 'REPORT.md'}")
-    # One file per dimension too: the tracks share no engine, so a reader only ever wants one.
+    # One file per dimension too: the tracks share no engine, so a reader only ever wants one —
+    # and that reader still needs to know which of its columns are invalid. Every warning is
+    # prefixed "<dim>/<case>:", which is what routes it to its track.
     for dim, body in per_dim.items():
         path = docs / f"REPORT-{dim.upper()}.md"
-        path.write_text("\n".join(header + body), encoding="utf-8")
+        own = [w for w in warnings if w.startswith(f"{dim}/")]
+        path.write_text("\n".join(with_warnings(header + body, own)), encoding="utf-8")
         print(f"wrote {path}")
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
