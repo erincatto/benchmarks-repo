@@ -13,6 +13,7 @@ were not simulating the same thing twice.
 """
 
 import json
+import math
 import pathlib
 import re
 import statistics
@@ -82,10 +83,17 @@ def load(results_dir):
 def summarize(runs):
     p50s = [r["step_ms"]["p50_ms"] for r in runs]
     extra = {}
+    diverged = False
     for r in runs:
         for key, value in (r.get("extra_metrics") or {}).items():
+            # Godot writes inf as 1e99999 and NaN as null. Either means the world blew up,
+            # and stepping a blown up world is cheap, so its time must not be ranked.
+            if value is None or (isinstance(value, float) and not math.isfinite(value)):
+                diverged = True
+                value = math.inf
             extra.setdefault(key, []).append(value)
     return {
+        "diverged": diverged,
         "repeats": len(runs),
         "p50": min(p50s),
         "median": statistics.median(p50s),
@@ -117,7 +125,7 @@ def chart_absolute(dim, cases, data, engines, out):
     for row, case in enumerate(cases):
         for i, engine in enumerate(engines):
             s = data[case].get(engine)
-            if s is None:
+            if s is None or s["diverged"]:
                 continue
             y = row * (n + 0.8) + i
             ypos.append(y)
@@ -152,7 +160,7 @@ def chart_relative(dim, cases, data, engines, out):
         xs, ys = [], []
         for row, case in enumerate(cases):
             s, b = data[case].get(engine), data[case].get(base)
-            if not s or not b or b["p50"] <= 0:
+            if not s or not b or b["p50"] <= 0 or s["diverged"] or b["diverged"]:
                 continue
             xs.append(s["p50"] / b["p50"])
             ys.append(row + (i - (len(others) - 1) / 2) * 0.32)
@@ -243,10 +251,13 @@ def main():
             ]
             for missing in [e for e in engines if e not in s]:
                 out.append(f"| {missing} | failed | — | — |")
-            base = s.get(BASELINE.get(dim), {}).get("p50")
-            fastest = min(v["p50"] for v in s.values())
-            for engine in sorted(s, key=lambda e: s[e]["p50"]):
-                v = s[engine]
+            valid = {e: v for e, v in s.items() if not v["diverged"]}
+            for engine in sorted(e for e in s if e not in valid):
+                out.append(f"| {engine} | diverged | — | — |")
+            base = valid.get(BASELINE.get(dim), {}).get("p50")
+            fastest = min((v["p50"] for v in valid.values()), default=None)
+            for engine in sorted(valid, key=lambda e: valid[e]["p50"]):
+                v = valid[engine]
                 rel = (
                     "—"
                     if engine == BASELINE.get(dim)
@@ -277,6 +288,11 @@ def main():
 
             owners = {}
             for engine, v in s.items():
+                if v["diverged"]:
+                    warnings.append(
+                        f"{dim}/{case}: {engine} reported a non-finite metric — the simulation "
+                        f"blew up, so its step time is not ranked."
+                    )
                 if len(v["fps"]) > 1:
                     warnings.append(
                         f"{dim}/{case}: {engine} produced {len(v['fps'])} fingerprints across "
@@ -297,12 +313,12 @@ def main():
         out = out[:2] + ["## ⚠ Validity warnings", ""] + [f"- {w}" for w in warnings] + [""] + out[2:]
 
     header = out[:4]
-    (docs / "REPORT.md").write_text("\n".join(out))
+    (docs / "REPORT.md").write_text("\n".join(out), encoding="utf-8")
     print(f"wrote {docs / 'REPORT.md'}")
     # One file per dimension too: the tracks share no engine, so a reader only ever wants one.
     for dim, body in per_dim.items():
         path = docs / f"REPORT-{dim.upper()}.md"
-        path.write_text("\n".join(header + body))
+        path.write_text("\n".join(header + body), encoding="utf-8")
         print(f"wrote {path}")
     for w in warnings:
         print(f"warning: {w}", file=sys.stderr)
